@@ -4,11 +4,11 @@ use crate::domain::payment::entity::Payment;
 use crate::domain::error::DomainError;
 use std::sync::Arc;
 
-/// **決済を処理する API**
+/// **決済を処理**
 async fn process_payment(
-    State(service): State<Arc<PaymentService>>,
+    State(service): State<Arc<PaymentService<impl PaymentRepository, impl PaymentGateway>>>,
     Json(payment): Json<Payment>,
-) -> Result<Json<()>, DomainError> {
-    service.process_payment(payment).await?;
-    Ok(Json(()))
+) -> Result<Json<String>, DomainError> {
+    let transaction_id = service.process_payment(payment).await?;
+    Ok(Json(transaction_id))
 }
