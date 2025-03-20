@@ -1,9 +1,9 @@
-use stripe::{Client, Currency, PaymentIntent, CreatePaymentIntent};
+use stripe::{Client, CreateCharge, Currency, ChargeSourceParams, Charge};
 use std::env;
 use async_trait::async_trait;
-use crate::domain::error::DomainError;
 use crate::domain::payment::entity::Payment;
 use crate::domain::payment::repository::PaymentGateway;
+use crate::domain::error::DomainError;
 
 /// **Stripe API を利用する支払いゲートウェイ**
 pub struct StripePaymentGateway {
@@ -21,15 +21,16 @@ impl StripePaymentGateway {
 
 #[async_trait]
 impl PaymentGateway for StripePaymentGateway {
-    /// **Stripe で支払いを処理**
     async fn process_payment(&self, payment: &Payment) -> Result<String, DomainError> {
-        let mut params = CreatePaymentIntent::new(payment.amount as i64, Currency::Usd);
-        params.payment_method = Some(payment.payment_method.clone());
+        let mut params = CreateCharge::new();
+        params.amount = Some((payment.amount * 100.0) as i64); // Stripe は最小単位（セントなど）で扱う
+        params.currency = Some(Currency::Usd);
+        params.source = Some(ChargeSourceParams::Token(payment.payment_method.clone()));
 
-        let intent = PaymentIntent::create(&self.client, params).map_err(|e| {
+        let charge = Charge::create(&self.client, params).map_err(|e| {
             DomainError::PaymentError(format!("Stripe payment failed: {}", e))
         })?;
 
-        Ok(intent.id)
+        Ok(charge.id)
     }
 }
